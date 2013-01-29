@@ -1,0 +1,42 @@
+Typical class setup:
+
+Front:
+Fighter
+Cleric
+
+Back:
+Rogue
+Mage
+
+
+Class Abilities:
+Single Target Damage (F)
+Ranged Multi Target Damage (M)
+Healing/Curing (C)
+Buffing
+Stealth  (R)
+Stealing (R)
+Ranged Single Target Damage
+Utility
+
+
+Roguelike elements:
+Randomized dungeons each game
+Perma death (w/ resurrection)
+Many item interactions
+
+
+JPRG elements:
+multi-classing/jobbing
+charge attacks
+
+
+
+
+chests have chance of guardian monster group(s)
+
+
+
+
+
+

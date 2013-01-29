@@ -1,0 +1,26 @@
+{
+  "mainFile": "E:/Projects/PartyRogue/partyrogue.py", 
+  "venv": "", 
+  "relatedProjects": [], 
+  "name": "PartyRogue", 
+  "license": "GNU General Public License v3", 
+  "url": "", 
+  "pythonPath": "C:/Dev/Python 2.7.2/pythonw.exe", 
+  "preExecScript": "", 
+  "programParams": "", 
+  "PYTHONPATH": "", 
+  "supported-extensions": [
+    ".py", 
+    ".html", 
+    ".jpg", 
+    ".png", 
+    ".ui", 
+    ".css", 
+    ".json", 
+    ".js", 
+    ".ini"
+  ], 
+  "project-type": "", 
+  "postExecScript": "", 
+  "description": ""
+}
