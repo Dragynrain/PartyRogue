@@ -54,13 +54,12 @@ TORCH_RADIUS = 10
 LIMIT_FPS = 20  # 20 frames-per-second maximum
 
 
-color_dark_wall = libtcod.Color(83, 83, 77)
-color_light_wall = libtcod.Color(255, 255, 255)
+color_dark_wall = libtcod.Color(103, 103, 97)
+color_light_wall = libtcod.Color(180, 180, 180)
 color_dark_ground = libtcod.Color(125, 125, 111)
-color_light_ground = libtcod.Color(245, 246, 206)
 color_light_ground = libtcod.Color(255, 255, 255)
 
-wall_tile = 28 * 40 + 9
+wall_tile = 28 * 40 + 8
 floor_tile = 28 * 40 + 8
 mage_tile = 33 * 40 + 20
 orc_tile = 8 * 40 + 38
@@ -69,6 +68,7 @@ stairs_down_tile = 28 * 40 + 12
 stairs_up_tile = 28 * 40 + 11
 yellow_potion_tile = 23 * 40 + 27
 white_potion_tile = 24 * 40 + 7
+corpse_tile = 22 * 40 + 36
 
 
 class Tile:
@@ -107,7 +107,7 @@ class Rect:
 class Object:
     #this is a generic object: the player, a monster, an item, the stairs...
     #it's always represented by a character on screen.
-    def __init__(self, x, y, char, name, color, blocks=False,always_visible=False, fighter=None, ai=None, item=None, equipment=None):
+    def __init__(self, x, y, char, name, color, blocks=False,always_visible=False, first_combatant=None, ai=None, item=None, equipment=None):
         self.x = x
         self.y = y
         self.char = char
@@ -115,9 +115,10 @@ class Object:
         self.color = color
         self.blocks = blocks
         self.always_visible = always_visible
-        self.fighter = fighter
-        if self.fighter:  # let the fighter component know who owns it
-            self.fighter.owner = self
+        self.combatant = []
+        if first_combatant is not None:  # let the combatant component know who owns it
+            first_combatant.owner = self
+        self.combatant.append(first_combatant)
 
         self.ai = ai
         if self.ai:  # let the AI component know who owns it
@@ -134,6 +135,10 @@ class Object:
             # there must be an Item component for the Equipment component to work properly
             self.item = Item()
             self.item.owner = self
+    def add_combatant(self, combatant):
+        if combatant is not None:
+            self.combatant.append(combatant)
+
 
     def move(self, dx, dy):
         #move by the given amount, if the destination is not blocked
@@ -182,40 +187,111 @@ class Object:
         #erase the character that represents this object
         libtcod.console_put_char(con, self.x, self.y, ' ', libtcod.BKGND_NONE)
 
-
-class Fighter:
-    #combat-related properties and methods (monster, player, NPC).
-    def __init__(self, hp, defense, power, xp, death_function=None):
+class Combatant:
+    #movement-related properties and methods (monster, player, NPC).
+    def __init__(
+    self,
+    name,
+    quantity=1,
+    hp=1,
+    mp=0,
+    melee_power=0,
+    melee_defense=0,
+    ranged_power=0,
+    ranged_defense=0,
+    magic_power=0,
+    magic_defense=0,
+    initiative=0,
+    luck=0,
+    xp=0,
+    death_function=None):
+        self.name = name
+        self.quantity = quantity
         self.base_max_hp = hp
         self.hp = hp
-        self.base_defense = defense
-        self.base_power = power
+        self.base_max_mp = mp
+        self.mp = mp
+        self.base_melee_power = melee_power
+        self.base_melee_defense = melee_defense
+        self.base_ranged_power = ranged_power
+        self.base_ranged_defense = ranged_defense
+        self.base_magic_power = magic_power
+        self.base_magic_defense = magic_defense
+        self.base_initiative = initiative
+        self.base_luck = luck
         self.xp = xp
         self.death_function = death_function
 
     @property
-    def power(self):  # return actual power, by summing up the bonuses from all equipped items
-        bonus = sum(equipment.power_bonus for equipment in get_all_equipped(self.owner))
-        return self.base_power + bonus
+    def melee_power(self):  # return actual power, by summing up the bonuses from all equipped items
+        bonus = sum(equipment.melee_power_bonus for equipment in get_all_equipped(self.owner))
+        return self.base_melee_power + bonus
 
     @property
-    def defense(self):  # return actual defense, by summing up the bonuses from all equipped items
-        bonus = sum(equipment.defense_bonus for equipment in get_all_equipped(self.owner))
-        return self.base_defense + bonus
+    def melee_defense(self):  # return actual defense, by summing up the bonuses from all equipped items
+        bonus = sum(equipment.melee_defense_bonus for equipment in get_all_equipped(self.owner))
+        return self.base_melee_defense + bonus
+
+    @property
+    def ranged_power(self):  # return actual power, by summing up the bonuses from all equipped items
+        bonus = sum(equipment.ranged_power_bonus for equipment in get_all_equipped(self.owner))
+        return self.base_ranged_power + bonus
+
+    @property
+    def ranged_defense(self):  # return actual defense, by summing up the bonuses from all equipped items
+        bonus = sum(equipment.ranged_defense_bonus for equipment in get_all_equipped(self.owner))
+        return self.base_ranged_defense + bonus
+
+    @property
+    def magic_power(self):  # return actual power, by summing up the bonuses from all equipped items
+        bonus = sum(equipment.magic_power_bonus for equipment in get_all_equipped(self.owner))
+        return self.base_magic_power + bonus
+
+    @property
+    def magic_defense(self):  # return actual defense, by summing up the bonuses from all equipped items
+        bonus = sum(equipment.magic_defense_bonus for equipment in get_all_equipped(self.owner))
+        return self.base_magic_defense + bonus
 
     @property
     def max_hp(self):  # return actual max_hp, by summing up the bonuses from all equipped items
         bonus = sum(equipment.max_hp_bonus for equipment in get_all_equipped(self.owner))
         return self.base_max_hp + bonus
 
-    def attack(self, target):
+    @property
+    def max_mp(self):  # return actual max_mp, by summing up the bonuses from all equipped items
+        bonus = sum(equipment.max_mp_bonus for equipment in get_all_equipped(self.owner))
+        return self.base_max_mp + bonus
+
+    @property
+    def initiative(self):  # return actual initiative, by summing up the bonuses from all equipped items
+        bonus = sum(equipment.initiative_bonus for equipment in get_all_equipped(self.owner))
+        return self.base_initiative + bonus
+
+    @property
+    def luck(self):  # return actual luck, by summing up the bonuses from all equipped items
+        bonus = sum(equipment.luck_bonus for equipment in get_all_equipped(self.owner))
+        return self.base_luck + bonus
+
+
+    def melee_attack(self, target):
         #a simple formula for attack damage
-        damage = self.power - target.fighter.defense
+        damage = self.melee_power - target.combatant[0].melee_defense
 
         if damage > 0:
             #make the target take some damage
-            message(self.owner.name.capitalize() + ' attacks ' + target.name + ' for ' + str(damage) + ' hit points.')
-            target.fighter.take_damage(damage)
+            message(self.owner.name.capitalize() + ' melee attacks ' + target.name + ' for ' + str(damage) + ' hit points.')
+            target.combatant[0].take_damage(damage)
+        else:
+            message(self.owner.name.capitalize() + ' attacks ' + target.name + ' but it has no effect!')
+
+    def ranged_attack(self, target):
+        #a simple formula for ranged attack damage
+        damage = self.ranged_power - target.combatant[0].ranged_defense
+
+        if damage > 0:
+            #make the target take some damage
+            message(self.owner.name.capitalize() + ' ranged attacks ' + target.name + ' for ' + str(damage) + ' hit points.')
+            target.combatant[0].take_damage(damage)
         else:
             message(self.owner.name.capitalize() + ' attacks ' + target.name + ' but it has no effect!')
 
@@ -226,12 +302,15 @@ class Fighter:
 
             #check for death. if there's a death function, call it
             if self.hp <= 0:
-                function = self.death_function
-                if function is not None:
-                    function(self.owner)
+                if self.quantity > 1:
+                    self.quantity -= 1
+                else:
+                    function = self.death_function
+                    if function is not None:
+                        function(self.owner)
 
                 if self.owner != player:  #yield experience to the player
-                    player.fighter.xp += self.xp
+                    player.combatant[0].xp += self.xp
 
     def heal(self, amount):
         #heal by the given amount, without going over the maximum
@@ -239,7 +318,7 @@ class Fighter:
         if self.hp > self.max_hp:
             self.hp = self.max_hp
 
-class BasicMonster:
+class AI_BasicMonster:
     #AI for a basic monster.
     def take_turn(self):
         #a basic monster takes its turn. if you can see it, it can see you
@@ -251,10 +330,10 @@ class BasicMonster:
                 monster.move_towards(player.x, player.y)
 
             #close enough, attack! (if the player is still alive.)
-            elif player.fighter.hp > 0:
-                monster.fighter.attack(player)
+            elif player.combatant[0].hp > 0:
+                monster.combatant[0].melee_attack(player)
 
-class ConfusedMonster:
+class AI_ConfusedMonster:
     #AI for a temporarily confused monster (reverts to previous AI after a while).
     def __init__(self, old_ai, num_turns=CONFUSE_NUM_TURNS):
         self.old_ai = old_ai
@@ -316,9 +395,9 @@ class Item:
 
 class Equipment:
     #an object that can be equipped, yielding bonuses. automatically adds the Item component.
-    def __init__(self, slot, power_bonus=0, defense_bonus=0, max_hp_bonus=0):
-        self.power_bonus = power_bonus
-        self.defense_bonus = defense_bonus
+    def __init__(self, slot, melee_power_bonus=0, melee_defense_bonus=0, max_hp_bonus=0):
+        self.melee_power_bonus = melee_power_bonus
+        self.melee_defense_bonus = melee_defense_bonus
         self.max_hp_bonus = max_hp_bonus
 
         self.slot = slot
@@ -508,7 +587,7 @@ def place_objects(room):
 
     #chance of each monster
     monster_chances = {}
-    monster_chances['orc'] = 80  #orc always shows up, even if all other monsters have 0 chance
+    monster_chances['orc fighter'] = 80  #orc always shows up, even if all other monsters have 0 chance
     monster_chances['troll'] = from_dungeon_level([[15, 3], [30, 5], [60, 7]])
 
     #maximum number of items per room
@@ -535,23 +614,26 @@ def place_objects(room):
         #only place it if the tile is not blocked
         if not is_blocked(x, y):
             choice = random_choice(monster_chances)
-            if choice == 'orc':
-                #create an orc
-                fighter_component = Fighter(hp=20, defense=0, power=4, xp=35, death_function=monster_death)
-                ai_component = BasicMonster()
+            if choice == 'orc fighter':
+                #create a group of orcs
+                combatant = Combatant(name='orc fighter',quantity = 2, hp=20, melee_power=4, melee_defense=0, xp=10, death_function=monster_death)
+                combatant2 = Combatant(name='orc backup dancer',quantity = 2, hp=20, melee_power=4, melee_defense=0, xp=10, death_function=monster_death)
+                ai_component = AI_BasicMonster()
 
-                monster = Object(x, y, orc_tile, 'orc', libtcod.white,
-                    blocks=True, fighter=fighter_component, ai=ai_component)
+                monster_encounter = Object(x, y, orc_tile, 'group of orcs', libtcod.white,
+                    blocks=True, first_combatant=combatant, ai=ai_component)
+                monster_encounter.add_combatant(combatant2)
+
 
             elif choice == 'troll':
                 #create a troll
-                fighter_component = Fighter(hp=30, defense=2, power=8, xp=100, death_function=monster_death)
-                ai_component = BasicMonster()
+                combatant_component = Combatant(quantity = 1, hp=30, melee_defense=2, melee_power=8, xp=100, death_function=monster_death)
+                ai_component = AI_BasicMonster()
 
                 monster = Object(x, y, troll_tile, 'troll', libtcod.white,
-                    blocks=True, fighter=fighter_component, ai=ai_component)
+                    blocks=True, first_combatant=combatant_component, ai=ai_component)
 
-            objects.append(monster)
+            objects.append(monster_encounter)
 
     #choose random number of items
     num_items = libtcod.random_get_int(0, 0, max_items)
@@ -586,12 +668,12 @@ def place_objects(room):
 
             elif choice == 'sword':
                 #create a sword
-                equipment_component = Equipment(slot='right hand', power_bonus=3)
+                equipment_component = Equipment(slot='right hand', melee_power_bonus=3)
                 item = Object(x, y, '/', 'sword', libtcod.sky, equipment=equipment_component)
 
             elif choice == 'shield':
                 #create a shield
-                equipment_component = Equipment(slot='left hand', defense_bonus=1)
+                equipment_component = Equipment(slot='left hand', melee_defense_bonus=1)
                 item = Object(x, y, '[', 'shield', libtcod.darker_orange, equipment=equipment_component)
 
             objects.append(item)
@@ -690,7 +772,7 @@ def render_all():
         y += 1
 
     #show the player's stats
-    render_bar(1, 1, BAR_WIDTH, 'HP', player.fighter.hp, player.fighter.max_hp,
+    render_bar(1, 1, BAR_WIDTH, 'HP', player.combatant[0].hp, player.combatant[0].max_hp,
         libtcod.light_red, libtcod.darker_red)
     libtcod.console_print(panel, 1, 3, 'Dungeon level ' + str(dungeon_level))
 
@@ -725,13 +807,13 @@ def player_move_or_attack(dx, dy):
     #try to find an attackable object there
     target = None
     for object in objects:
-        if object.fighter and object.x == x and object.y == y:
+        if object.combatant and object.x == x and object.y == y:
             target = object
             break
 
     #attack if target found, move otherwise
     if target is not None:
-        player.fighter.attack(target)
+        player.combatant[0].melee_attack(target)
     else:
         player.move(dx, dy)
         fov_recompute = True
@@ -863,9 +945,9 @@ def handle_keys():
             if key_char == 'c':
                 #show character information
                 level_up_xp = LEVEL_UP_BASE + player.level * LEVEL_UP_FACTOR
-                msgbox('Character Information\n\nLevel: ' + str(player.level) + '\nExperience: ' + str(player.fighter.xp) +
-                    '\nExperience to level up: ' + str(level_up_xp) + '\n\nMaximum HP: ' + str(player.fighter.max_hp) +
-                    '\nAttack: ' + str(player.fighter.power) + '\nDefense: ' + str(player.fighter.defense), CHARACTER_SCREEN_WIDTH)
+                msgbox('Character Information\n\nLevel: ' + str(player.level) + '\nExperience: ' + str(player.combatant[0].xp) +
+                    '\nExperience to level up: ' + str(level_up_xp) + '\n\nMaximum HP: ' + str(player.combatant[0].max_hp) +
+                    '\nAttack: ' + str(player.combatant[0].power) + '\nDefense: ' + str(player.combatant[0].defense), CHARACTER_SCREEN_WIDTH)
 
             if key_char == '>':
                 #go down stairs, if the player is on them
@@ -877,26 +959,26 @@ def handle_keys():
 def check_level_up():
     #see if the player's experience is enough to level-up
     level_up_xp = LEVEL_UP_BASE + player.level * LEVEL_UP_FACTOR
-    if player.fighter.xp >= level_up_xp:
+    if player.combatant[0].xp >= level_up_xp:
         #it is! level up and ask to raise some stats
         player.level += 1
-        player.fighter.xp -= level_up_xp
+        player.combatant[0].xp -= level_up_xp
         message('Your battle skills grow stronger! You reached level ' + str(player.level) + '!', libtcod.yellow)
 
         choice = None
         while choice == None:  #keep asking until a choice is made
             choice = menu('Level up! Choose a stat to raise:\n',
-                ['Constitution (+20 HP, from ' + str(player.fighter.max_hp) + ')',
-                'Strength (+1 attack, from ' + str(player.fighter.power) + ')',
-                'Agility (+1 defense, from ' + str(player.fighter.defense) + ')'], LEVEL_SCREEN_WIDTH)
+                ['Constitution (+20 HP, from ' + str(player.combatant[0].max_hp) + ')',
+                'Strength (+1 attack, from ' + str(player.combatant[0].power) + ')',
+                'Agility (+1 defense, from ' + str(player.combatant[0].defense) + ')'], LEVEL_SCREEN_WIDTH)
 
         if choice == 0:
-            player.fighter.base_max_hp += 20
-            player.fighter.hp += 20
+            player.combatant[0].base_max_hp += 20
+            player.combatant[0].hp += 20
         elif choice == 1:
-            player.fighter.base_power += 1
+            player.combatant[0].base_power += 1
         elif choice == 2:
-            player.fighter.base_defense += 1
+            player.combatant[0].base_defense += 1
 
 def player_death(player):
     #the game ended!
@@ -905,17 +987,17 @@ def player_death(player):
     game_state = 'dead'
 
     #for added effect, transform the player into a corpse!
-    player.char = '%'
-    player.color = libtcod.dark_red
+    player.char = corpse_tile
+    player.color = libtcod.white
 
 def monster_death(monster):
     #transform it into a nasty corpse! it doesn't block, can't be
     #attacked and doesn't move
-    message('The ' + monster.name + ' is dead! You gain ' + str(monster.fighter.xp) + ' experience points.', libtcod.orange)
-    monster.char = '%'
-    monster.color = libtcod.dark_red
+    message('The ' + monster.name + ' is dead! You gain ' + str(monster.combatant[0].xp) + ' experience points.', libtcod.orange)
+    monster.char = corpse_tile
+    monster.color = libtcod.white
     monster.blocks = False
-    monster.fighter = None
+    monster.combatant = []
     monster.ai = None
     monster.name = 'remains of ' + monster.name
     monster.send_to_back()
@@ -948,7 +1030,7 @@ def target_monster(max_range=None):
 
         #return the first clicked monster, otherwise continue looping
         for obj in objects:
-            if obj.x == x and obj.y == y and obj.fighter and obj != player:
+            if obj.x == x and obj.y == y and obj.combatant and obj != player:
                 return obj
 
 def closest_monster(max_range):
@@ -957,7 +1039,7 @@ def closest_monster(max_range):
     closest_dist = max_range + 1  #start with (slightly more than) maximum range
 
     for object in objects:
-        if object.fighter and not object == player and libtcod.map_is_in_fov(fov_map, object.x, object.y):
+        if object.combatant and not object == player and libtcod.map_is_in_fov(fov_map, object.x, object.y):
             #calculate distance between this object and the player
             dist = player.distance_to(object)
             if dist < closest_dist:  #it's closer, so remember it
@@ -967,12 +1049,12 @@ def closest_monster(max_range):
 
 def cast_heal():
     #heal the player
-    if player.fighter.hp == player.fighter.max_hp:
+    if player.combatant[0].hp == player.combatant[0].max_hp:
         message('You are already at full health.', libtcod.red)
         return 'cancelled'
 
     message('Your wounds start to feel better!', libtcod.light_violet)
-    player.fighter.heal(HEAL_AMOUNT)
+    player.combatant[0].heal(HEAL_AMOUNT)
 
 def cast_lightning():
     #find closest enemy (inside a maximum range) and damage it
@@ -984,7 +1066,7 @@ def cast_lightning():
     #zap it!
     message('A lighting bolt strikes the ' + monster.name + ' with a loud thunder! The damage is '
         + str(LIGHTNING_DAMAGE) + ' hit points.', libtcod.light_blue)
-    monster.fighter.take_damage(LIGHTNING_DAMAGE)
+    monster.combatant[0].take_damage(LIGHTNING_DAMAGE)
 
 def cast_fireball():
     #ask the player for a target tile to throw a fireball at
@@ -993,10 +1075,10 @@ def cast_fireball():
     if x is None: return 'cancelled'
     message('The fireball explodes, burning everything within ' + str(FIREBALL_RADIUS) + ' tiles!', libtcod.orange)
 
-    for obj in objects:  #damage every fighter in range, including the player
-        if obj.distance(x, y) <= FIREBALL_RADIUS and obj.fighter:
+    for obj in objects:  #damage every combatant in range, including the player
+        if obj.distance(x, y) <= FIREBALL_RADIUS and obj.combatant:
             message('The ' + obj.name + ' gets burned for ' + str(FIREBALL_DAMAGE) + ' hit points.', libtcod.orange)
-            obj.fighter.take_damage(FIREBALL_DAMAGE)
+            obj.combatant[0].take_damage(FIREBALL_DAMAGE)
 
 def cast_confuse():
     #ask the player for a target to confuse
@@ -1006,7 +1088,7 @@ def cast_confuse():
 
     #replace the monster's AI with a "confused" one; after some turns it will restore the old AI
     old_ai = monster.ai
-    monster.ai = ConfusedMonster(old_ai)
+    monster.ai = AI_ConfusedMonster(old_ai)
     monster.ai.owner = monster  #tell the new component who owns it
     message('The eyes of the ' + monster.name + ' look vacant, as he starts to stumble around!', libtcod.light_green)
 
@@ -1045,8 +1127,8 @@ def new_game():
     global player, inventory, game_msgs, game_state, dungeon_level
 
     #create object representing the player
-    fighter_component = Fighter(hp=100, defense=1, power=2, xp=0, death_function=player_death)
-    player = Object(0, 0, mage_tile, 'player', libtcod.white, blocks=True, fighter=fighter_component)
+    combatant_component = Combatant(name='Fred',hp=100, melee_defense=1, melee_power=2, xp=0, death_function=player_death)
+    player = Object(0, 0, mage_tile, 'Party', libtcod.white, blocks=True, first_combatant=combatant_component)
 
     player.level = 1
 
@@ -1068,7 +1150,7 @@ def new_game():
     key = libtcod.Key()
 
     #initial equipment: a dagger
-    equipment_component = Equipment(slot='right hand', power_bonus=2)
+    equipment_component = Equipment(slot='right hand', melee_power_bonus=2)
     obj = Object(0, 0, '-', 'dagger', libtcod.sky, equipment=equipment_component)
     inventory.append(obj)
     equipment_component.equip()
@@ -1078,7 +1160,7 @@ def next_level():
     #advance to the next level
     global dungeon_level
     message('You take a moment to rest, and recover your strength.', libtcod.light_violet)
-    player.fighter.heal(player.fighter.max_hp / 2)  #heal the player by 50%
+    player.combatant[0].heal(player.combatant[0].max_hp / 2)  #heal the player by 50%
 
     dungeon_level += 1
     message('After a rare moment of peace, you descend deeper into the heart of the dungeon...', libtcod.red)

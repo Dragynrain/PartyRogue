@@ -8,6 +8,24 @@ Back:
 Rogue
 Mage
 
+Attribute effects:
+Melee Damage Bonus
+Ranged Damage Bonus
+Magic Damage Bonus
+Health Bonus
+Mana Bonus
+Melee Defense Bonus
+Ranged Defense Bonus
+Magic Defense Bonus
+Initiative Bonus
+Critical Chance Bonus
+Critical Damage Bonus
+Magicfind Bonus
+
+
+
+
+
 
 Class Abilities:
 Single Target Damage (F)
@@ -29,11 +47,16 @@ Many item interactions
 JPRG elements:
 multi-classing/jobbing
 charge attacks
+no chance of "missing"?
 
-
-
-
+Bard's Tale elements:
+traps/teleporters
+multiple attacks/turn
 chests have chance of guardian monster group(s)
+
+
+
+
 
 
 

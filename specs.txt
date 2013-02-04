@@ -1,0 +1,78 @@
+
+Typical class setup:
+
+Front:
+Fighter
+Cleric
+
+Back:
+Rogue
+Mage
+
+Attribute effects:
+Melee Damage Bonus
+Ranged Damage Bonus
+Magic Damage Bonus
+Health Bonus
+Mana Bonus
+Melee Defense Bonus
+Ranged Defense Bonus
+Magic Defense Bonus
+Initiative Bonus
+Critical Chance Bonus
+Critical Damage Bonus
+Magicfind Bonus
+
+
+Attributes:
+
+    Strength - Melee Damage
+    Magic - Magic Damage
+    Ranged - Ranged Damage
+    Constitution - Health Bonus
+    Spirit - Mana Bonus
+    Speed - Initiative Bonus
+    Agility - Melee Defense Bonus
+    Awareness - Ranged Defense Bonus
+    Willpower - Magic Defense Bonus
+    Luck - Critical Chance/Damage, Magicfind
+
+
+
+
+Class Abilities:
+Single Target Damage (F)
+Ranged Multi Target Damage (M)
+Healing/Curing (C)
+Buffing
+Stealth  (R)
+Stealing (R)
+Ranged Single Target Damage
+Utility
+
+
+Roguelike elements:
+Randomized dungeons each game
+Perma death (w/ resurrection)
+Many item interactions
+
+
+JPRG elements:
+multi-classing/jobbing
+charge attacks
+no chance of "missing"?
+
+Bard's Tale elements:
+traps/teleporters
+multiple attacks/turn
+chests have chance of guardian monster group(s)
+
+
+
+
+
+
+
+
+
+
